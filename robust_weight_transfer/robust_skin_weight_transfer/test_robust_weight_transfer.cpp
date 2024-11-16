@@ -241,7 +241,6 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
 
     return {smoothed_weights, vertices_ids_to_smooth};
 }
-
 bool test_find_closest_point_on_surface() {
     Eigen::MatrixXd vertices(3, 3);
     vertices << -1, -1, -1,
@@ -259,6 +258,7 @@ bool test_find_closest_point_on_surface() {
                        0, 0, -1;
 
     Eigen::MatrixXd closest_points = find_closest_point_on_surface(test_points, vertices, triangles);
+    std::cout << "Closest Points:\n" << closest_points << std::endl;
     if (!closest_points.isApprox(expected_points, 1e-6)) {
         return false;
     }
@@ -285,6 +285,7 @@ bool test_interpolate_attribute_from_bary() {
                        5 * 0.6 + 7 * 0.3 + 9 * 0.1, 6 * 0.6 + 8 * 0.3 + 10 * 0.1;
 
     Eigen::MatrixXd result = interpolate_attribute_from_bary(vertex_attributes, barycentric_coordinates, primitive_indices, mesh_triangles);
+    std::cout << "Interpolated Attributes:\n" << result << std::endl;
     if (!result.isApprox(expected_output, 1e-6)) {
         return false;
     }
@@ -298,6 +299,7 @@ bool test_normalize_vector() {
     expected << 0.6, 0.8, 0;
 
     Eigen::VectorXd normalized = normalize_vector(vector);
+    std::cout << "Normalized Vector:\n" << normalized << std::endl;
     if (!normalized.isApprox(expected, 1e-6)) {
         return false;
     }
@@ -339,6 +341,8 @@ bool test_find_matches_closest_surface() {
                         0.25, 0.75;
 
     auto [matched, target_weights] = find_matches_closest_surface(source_vertices, source_triangles, source_normals, target_vertices, target_triangles, target_normals, source_weights, distance_threshold_squared, angle_threshold_degrees);
+    std::cout << "Matched:\n" << matched << std::endl;
+    std::cout << "Target Weights:\n" << target_weights << std::endl;
     if (!matched.isApprox(expected_matched) || !target_weights.isApprox(expected_weights, 1e-6)) {
         return false;
     }
@@ -353,6 +357,8 @@ bool test_is_valid_array() {
     invalid_matrix << std::numeric_limits<double>::quiet_NaN(), 2,
                       std::numeric_limits<double>::infinity(), 4;
 
+    std::cout << "Valid Matrix:\n" << valid_matrix << std::endl;
+    std::cout << "Invalid Matrix:\n" << invalid_matrix << std::endl;
     if (is_valid_array(valid_matrix) != true || is_valid_array(invalid_matrix) != false) {
         return false;
     }
@@ -382,6 +388,7 @@ bool test_inpaint() {
                             0.117647, 0.882353;
 
     auto [W_inpainted, success] = inpaint(V2, F2, W2, Matched);
+    std::cout << "Inpainted Weights:\n" << W_inpainted << std::endl;
     if (success != true || !W_inpainted.isApprox(expected_W_inpainted, 1e-6)) {
         return false;
     }
@@ -407,7 +414,7 @@ bool test_smooth() {
     Eigen::VectorXi matched(5);
     matched << 1, 1, 1, 0, 0;
     double distance_threshold = 1.5;
-    
+
     Eigen::MatrixXd expected_smoothed_weights(5, 2);
     expected_smoothed_weights << 0.85, 0.15,
                                  0.116667, 0.883333,
