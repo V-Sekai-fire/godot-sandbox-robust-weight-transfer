@@ -5,8 +5,6 @@
 #include <iostream>
 #include <set>
 
-#include <api.hpp>
-
 #include <igl/point_mesh_squared_distance.h>
 #include <igl/barycentric_coordinates.h>
 #include <igl/cotmatrix.h>
@@ -14,18 +12,18 @@
 #include <igl/adjacency_list.h>
 #include <igl/min_quad_with_fixed.h>
 
-Eigen::MatrixXd find_closest_point_on_surface(const Eigen::MatrixXd& test_points, const Eigen::MatrixXd& vertices, const Eigen::MatrixXi& triangles) {
+Eigen::MatrixXd find_closest_point_on_surface(const Eigen::MatrixXd& p_test_points, const Eigen::MatrixXd& p_vertices, const Eigen::MatrixXi& p_triangles) {
     Eigen::VectorXd smallest_squared_distances;
     Eigen::VectorXi primitive_indices;
     Eigen::MatrixXd closest_points;
 
-    igl::point_mesh_squared_distance(test_points, vertices, triangles, smallest_squared_distances, primitive_indices, closest_points);
+    igl::point_mesh_squared_distance(p_test_points, p_vertices, p_triangles, smallest_squared_distances, primitive_indices, closest_points);
 
-    Eigen::MatrixXd barycentric_coordinates(test_points.rows(), 3);
-    for (int i = 0; i < test_points.rows(); ++i) {
-        Eigen::RowVector3d v1 = vertices.row(triangles(primitive_indices(i), 0));
-        Eigen::RowVector3d v2 = vertices.row(triangles(primitive_indices(i), 1));
-        Eigen::RowVector3d v3 = vertices.row(triangles(primitive_indices(i), 2));
+    Eigen::MatrixXd barycentric_coordinates(p_test_points.rows(), 3);
+    for (int i = 0; i < p_test_points.rows(); ++i) {
+        Eigen::RowVector3d v1 = p_vertices.row(p_triangles(primitive_indices(i), 0));
+        Eigen::RowVector3d v2 = p_vertices.row(p_triangles(primitive_indices(i), 1));
+        Eigen::RowVector3d v3 = p_vertices.row(p_triangles(primitive_indices(i), 2));
         Eigen::RowVector3d point = closest_points.row(i);
         Eigen::RowVector3d bary;
         igl::barycentric_coordinates(point, v1, v2, v3, bary);
@@ -35,20 +33,20 @@ Eigen::MatrixXd find_closest_point_on_surface(const Eigen::MatrixXd& test_points
     return closest_points;
 }
 
-Eigen::MatrixXd interpolate_attribute_from_bary(const Eigen::MatrixXd& vertex_attributes, const Eigen::MatrixXd& barycentric_coordinates, const Eigen::VectorXi& primitive_indices, const Eigen::MatrixXi& mesh_triangles) {
-    Eigen::MatrixXd interpolated_attributes(barycentric_coordinates.rows(), vertex_attributes.cols());
+Eigen::MatrixXd interpolate_attribute_from_bary(const Eigen::MatrixXd& p_vertex_attributes, const Eigen::MatrixXd& p_barycentric_coordinates, const Eigen::VectorXi& p_primitive_indices, const Eigen::MatrixXi& p_mesh_triangles) {
+    Eigen::MatrixXd interpolated_attributes(p_barycentric_coordinates.rows(), p_vertex_attributes.cols());
 
-    for (int i = 0; i < barycentric_coordinates.rows(); ++i) {
-        int tri_idx = primitive_indices(i);
-        Eigen::RowVector3i tri = mesh_triangles.row(tri_idx);
+    for (int i = 0; i < p_barycentric_coordinates.rows(); ++i) {
+        int tri_idx = p_primitive_indices(i);
+        Eigen::RowVector3i tri = p_mesh_triangles.row(tri_idx);
 
-        Eigen::RowVectorXd attr1 = vertex_attributes.row(tri(0));
-        Eigen::RowVectorXd attr2 = vertex_attributes.row(tri(1));
-        Eigen::RowVectorXd attr3 = vertex_attributes.row(tri(2));
+        Eigen::RowVectorXd attr1 = p_vertex_attributes.row(tri(0));
+        Eigen::RowVectorXd attr2 = p_vertex_attributes.row(tri(1));
+        Eigen::RowVectorXd attr3 = p_vertex_attributes.row(tri(2));
 
-        double b1 = barycentric_coordinates(i, 0);
-        double b2 = barycentric_coordinates(i, 1);
-        double b3 = barycentric_coordinates(i, 2);
+        double b1 = p_barycentric_coordinates(i, 0);
+        double b2 = p_barycentric_coordinates(i, 1);
+        double b3 = p_barycentric_coordinates(i, 2);
 
         interpolated_attributes.row(i) = b1 * attr1 + b2 * attr2 + b3 * attr3;
     }
@@ -56,42 +54,42 @@ Eigen::MatrixXd interpolate_attribute_from_bary(const Eigen::MatrixXd& vertex_at
     return interpolated_attributes;
 }
 
-Eigen::VectorXd normalize_vector(const Eigen::VectorXd& vector) {
-    return vector.normalized();
+Eigen::VectorXd normalize_vector(const Eigen::VectorXd& p_vector) {
+    return p_vector.normalized();
 }
 
-std::tuple<Eigen::VectorXi, Eigen::MatrixXd> find_matches_closest_surface(const Eigen::MatrixXd& source_vertices, const Eigen::MatrixXi& source_triangles, const Eigen::MatrixXd& source_normals, const Eigen::MatrixXd& target_vertices, const Eigen::MatrixXi& target_triangles, const Eigen::MatrixXd& target_normals, const Eigen::MatrixXd& source_weights, double distance_threshold_squared, double angle_threshold_degrees) {
+std::tuple<Eigen::VectorXi, Eigen::MatrixXd> find_matches_closest_surface(const Eigen::MatrixXd& p_source_vertices, const Eigen::MatrixXi& p_source_triangles, const Eigen::MatrixXd& source_normals, const Eigen::MatrixXd& target_vertices, const Eigen::MatrixXi& p_target_triangles, const Eigen::MatrixXd& p_target_normals, const Eigen::MatrixXd& p_source_weights, double p_distance_threshold_squared, double p_angle_threshold_degrees) {
     Eigen::VectorXd squared_distance;
     Eigen::VectorXi closest_indices;
     Eigen::MatrixXd closest_points;
 
-    igl::point_mesh_squared_distance(target_vertices, source_vertices, source_triangles, squared_distance, closest_indices, closest_points);
+    igl::point_mesh_squared_distance(target_vertices, p_source_vertices, p_source_triangles, squared_distance, closest_indices, closest_points);
 
     Eigen::MatrixXd barycentric_coordinates(target_vertices.rows(), 3);
     for (int i = 0; i < target_vertices.rows(); ++i) {
-        Eigen::RowVector3d v1 = source_vertices.row(source_triangles(closest_indices(i), 0));
-        Eigen::RowVector3d v2 = source_vertices.row(source_triangles(closest_indices(i), 1));
-        Eigen::RowVector3d v3 = source_vertices.row(source_triangles(closest_indices(i), 2));
+        Eigen::RowVector3d v1 = p_source_vertices.row(p_source_triangles(closest_indices(i), 0));
+        Eigen::RowVector3d v2 = p_source_vertices.row(p_source_triangles(closest_indices(i), 1));
+        Eigen::RowVector3d v3 = p_source_vertices.row(p_source_triangles(closest_indices(i), 2));
         Eigen::RowVector3d point = closest_points.row(i);
         Eigen::RowVector3d bary;
         igl::barycentric_coordinates(point, v1, v2, v3, bary);
         barycentric_coordinates.row(i) = bary;
     }
 
-    Eigen::MatrixXd target_weights = interpolate_attribute_from_bary(source_weights, barycentric_coordinates, closest_indices, source_triangles);
-    Eigen::MatrixXd source_normals_matched_interpolated = interpolate_attribute_from_bary(source_normals, barycentric_coordinates, closest_indices, source_triangles);
+    Eigen::MatrixXd target_weights = interpolate_attribute_from_bary(p_source_weights, barycentric_coordinates, closest_indices, p_source_triangles);
+    Eigen::MatrixXd source_normals_matched_interpolated = interpolate_attribute_from_bary(source_normals, barycentric_coordinates, closest_indices, p_source_triangles);
 
     Eigen::VectorXi matched(target_vertices.rows());
     matched.setZero();
 
     for (int i = 0; i < target_vertices.rows(); ++i) {
         Eigen::Vector3d normalized_source_normal = normalize_vector(source_normals_matched_interpolated.row(i));
-        Eigen::Vector3d normalized_target_normal = normalize_vector(target_normals.row(i));
+        Eigen::Vector3d normalized_target_normal = normalize_vector(p_target_normals.row(i));
 
         double radian_angle = std::acos(std::abs(normalized_source_normal.dot(normalized_target_normal)));
         double degree_angle = radian_angle * 180.0 / M_PI;
 
-        if (squared_distance(i) <= distance_threshold_squared && degree_angle <= angle_threshold_degrees) {
+        if (squared_distance(i) <= p_distance_threshold_squared && degree_angle <= p_angle_threshold_degrees) {
             matched(i) = 1;
         }
     }
@@ -99,8 +97,8 @@ std::tuple<Eigen::VectorXi, Eigen::MatrixXd> find_matches_closest_surface(const 
     return {matched, target_weights};
 }
 
-bool is_valid_array(const Eigen::MatrixXd& matrix) {
-    return matrix.allFinite();
+bool is_valid_array(const Eigen::MatrixXd& p_matrix) {
+    return p_matrix.allFinite();
 }
 
 /**
@@ -117,46 +115,46 @@ bool is_valid_array(const Eigen::MatrixXd& matrix) {
  *     W_inpainted: #V2 by num_bones, final skinning weights where we inpainted weights for all vertices i where Matched[i] == False
  *     success: true if inpainting succeeded, false otherwise
  */
-std::tuple<Eigen::MatrixXd, bool> inpaint(const Eigen::MatrixXd& V2, const Eigen::MatrixXi& F2, const Eigen::MatrixXd& W2, const Eigen::VectorXi& Matched) {
-    if (V2.cols() != 3) {
+std::tuple<Eigen::MatrixXd, bool> inpaint(const Eigen::MatrixXd& p_V2, const Eigen::MatrixXi& p_F2, const Eigen::MatrixXd& p_W2, const Eigen::VectorXi& p_Matched) {
+    if (p_V2.cols() != 3) {
         return {Eigen::MatrixXd(), false};
     }
-    if (F2.cols() != 3 || F2.maxCoeff() >= V2.rows()) {
+    if (p_F2.cols() != 3 || p_F2.maxCoeff() >= p_V2.rows()) {
         return {Eigen::MatrixXd(), false};
     }
-    if (W2.rows() != V2.rows()) {
+    if (p_W2.rows() != p_V2.rows()) {
         return {Eigen::MatrixXd(), false};
     }
-    if (Matched.size() != V2.rows()) {
+    if (p_Matched.size() != p_V2.rows()) {
         return {Eigen::MatrixXd(), false};
     }
 
     Eigen::SparseMatrix<double> L, M;
-    igl::cotmatrix(V2, F2, L);
-    igl::massmatrix(V2, F2, igl::MASSMATRIX_TYPE_VORONOI, M);
+    igl::cotmatrix(p_V2, p_F2, L);
+    igl::massmatrix(p_V2, p_F2, igl::MASSMATRIX_TYPE_VORONOI, M);
     L = -L;  // Flip the sign of the Laplacian
     Eigen::SparseMatrix<double> Minv = M.cwiseInverse();
     Eigen::SparseMatrix<double> Q = L.transpose() * Minv * L;
 
-    Eigen::MatrixXd B = Eigen::MatrixXd::Zero(L.rows(), W2.cols());
+    Eigen::MatrixXd B = Eigen::MatrixXd::Zero(L.rows(), p_W2.cols());
     std::vector<int> b;
     Eigen::MatrixXd bc;
 
-    for (int i = 0; i < Matched.size(); ++i) {
-        if (Matched(i)) {
+    for (int i = 0; i < p_Matched.size(); ++i) {
+        if (p_Matched(i)) {
             b.push_back(i);
         }
     }
 
-    bc.resize(b.size(), W2.cols());
+    bc.resize(b.size(), p_W2.cols());
     for (int i = 0; i < b.size(); ++i) {
-        bc.row(i) = W2.row(b[i]);
+        bc.row(i) = p_W2.row(b[i]);
     }
 
-    Eigen::MatrixXd W_inpainted = Eigen::MatrixXd::Zero(L.rows(), W2.cols());
+    Eigen::MatrixXd W_inpainted = Eigen::MatrixXd::Zero(L.rows(), p_W2.cols());
     Eigen::VectorXi b_vec = Eigen::Map<Eigen::VectorXi>(b.data(), b.size());
     Eigen::SparseMatrix<double> Aeq(0, 0);
-    Eigen::MatrixXd Beq(0, W2.cols());
+    Eigen::MatrixXd Beq(0, p_W2.cols());
     igl::min_quad_with_fixed_data<double> data;
     igl::min_quad_with_fixed_precompute(Q, b_vec, Aeq, true, data);
     Eigen::MatrixXd Z;
@@ -164,15 +162,15 @@ std::tuple<Eigen::MatrixXd, bool> inpaint(const Eigen::MatrixXd& V2, const Eigen
     return {W_inpainted, success};
 }
 
-std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& target_vertices, const Eigen::MatrixXi& target_faces, const Eigen::MatrixXd& skinning_weights, const Eigen::VectorXi& matched, double distance_threshold, int num_smooth_iter_steps, double smooth_alpha) {
+std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& p_target_vertices, const Eigen::MatrixXi& p_target_faces, const Eigen::MatrixXd& p_skinning_weights, const Eigen::VectorXi& matched, double p_distance_threshold, int p_num_smooth_iter_steps, double p_smooth_alpha) {
     Eigen::VectorXi not_matched(matched.size());
     for (int i = 0; i < matched.size(); ++i) {
         not_matched(i) = (matched(i) == 0) ? 1 : 0;
     }
-    Eigen::VectorXi vertices_ids_to_smooth = Eigen::VectorXi::Zero(target_vertices.rows());
+    Eigen::VectorXi vertices_ids_to_smooth = Eigen::VectorXi::Zero(p_target_vertices.rows());
 
     std::vector<std::vector<int>> adjacency_list;
-    igl::adjacency_list(target_faces, adjacency_list);
+    igl::adjacency_list(p_target_faces, adjacency_list);
 
     auto get_points_within_distance = [&](int vertex_id) {
         std::vector<int> result;
@@ -194,7 +192,7 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
             }
 
             for (int neighbor : adjacency_list[current_vertex]) {
-                if (visited.find(neighbor) == visited.end() && (target_vertices.row(vertex_id) - target_vertices.row(neighbor)).norm() < distance_threshold) {
+                if (visited.find(neighbor) == visited.end() && (p_target_vertices.row(vertex_id) - p_target_vertices.row(neighbor)).norm() < p_distance_threshold) {
                     visited.insert(neighbor);
                     queue.push(neighbor);
                 }
@@ -205,7 +203,7 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
         return result;
     };
 
-    for (int i = 0; i < target_vertices.rows(); ++i) {
+    for (int i = 0; i < p_target_vertices.rows(); ++i) {
         if (not_matched(i)) {
             std::vector<int> affected_vertices = get_points_within_distance(i);
             for (int vertex : affected_vertices) {
@@ -214,10 +212,10 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
         }
     }
 
-    Eigen::MatrixXd smoothed_weights = skinning_weights;
-    for (int step_idx = 0; step_idx < num_smooth_iter_steps; ++step_idx) {
+    Eigen::MatrixXd smoothed_weights = p_skinning_weights;
+    for (int step_idx = 0; step_idx < p_num_smooth_iter_steps; ++step_idx) {
         Eigen::MatrixXd new_weights = smoothed_weights;
-        for (int i = 0; i < target_vertices.rows(); ++i) {
+        for (int i = 0; i < p_target_vertices.rows(); ++i) {
             if (vertices_ids_to_smooth(i)) {
                 if (i >= adjacency_list.size()) {
                     continue;
@@ -228,10 +226,10 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
                 }
 
                 Eigen::RowVectorXd weight = smoothed_weights.row(i);
-                Eigen::RowVectorXd new_weight = (1 - smooth_alpha) * weight;
+                Eigen::RowVectorXd new_weight = (1 - p_smooth_alpha) * weight;
 
                 for (int neighbor : neighbors) {
-                    new_weight += (smoothed_weights.row(neighbor) / neighbors.size()) * smooth_alpha;
+                    new_weight += (smoothed_weights.row(neighbor) / neighbors.size()) * p_smooth_alpha;
                 }
 
                 new_weights.row(i) = new_weight;
