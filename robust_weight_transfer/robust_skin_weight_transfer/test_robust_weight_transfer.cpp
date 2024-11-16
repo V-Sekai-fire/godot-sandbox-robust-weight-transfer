@@ -445,34 +445,42 @@ bool test_smooth() {
 }
 
 extern "C" Variant run_tests() {
+    bool all_tests_passed = true;
+
     if (!test_find_closest_point_on_surface()) {
         std::cerr << "test_find_closest_point_on_surface failed" << std::endl;
-        return Variant(1);
+        all_tests_passed = false;
     }
     if (!test_interpolate_attribute_from_bary()) {
         std::cerr << "test_interpolate_attribute_from_bary failed" << std::endl;
-        return Variant(1);
+        all_tests_passed = false;
     }
     if (!test_normalize_vector()) {
         std::cerr << "test_normalize_vector failed" << std::endl;
-        return Variant(1);
+        all_tests_passed = false;
     }
     if (!test_find_matches_closest_surface()) {
         std::cerr << "test_find_matches_closest_surface failed" << std::endl;
-        return Variant(1);
+        all_tests_passed = false;
     }
     if (!test_is_valid_array()) {
         std::cerr << "test_is_valid_array failed" << std::endl;
-        return Variant(1);
+        all_tests_passed = false;
     }
-    // if (!test_inpaint()) {
-    //     std::cerr << "test_inpaint failed" << std::endl;
-    //     return Variant(1);
-    // }
     if (!test_smooth()) {
         std::cerr << "test_smooth failed" << std::endl;
+        all_tests_passed = false;
+    }
+    if (!test_inpaint()) {
+        std::cerr << "test_inpaint failed" << std::endl;
+        all_tests_passed = false;
+    }
+
+    if (all_tests_passed) {
+        std::cout << "All tests passed!" << std::endl;
+        return Variant(0);
+    } else {
+        std::cerr << "Some tests failed." << std::endl;
         return Variant(1);
     }
-    std::cout << "All tests passed!" << std::endl;
-    return Variant(0);
 }
