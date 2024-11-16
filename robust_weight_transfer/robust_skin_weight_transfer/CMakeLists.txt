@@ -9,7 +9,6 @@ add_definitions(-DIGL_PARALLEL_FOR_FORCE_SERIAL)
 set(PROOT ${CMAKE_SOURCE_DIR})
 
 add_sandbox_program_at(robust_weight_transfer ${PROOT}
-  robust_weight_transfer.cpp
   test_robust_weight_transfer.cpp
   thirdparty/nonmanifold-laplacian/src/bubble_offset.cpp
   thirdparty/nonmanifold-laplacian/src/point_cloud_utilities.cpp
