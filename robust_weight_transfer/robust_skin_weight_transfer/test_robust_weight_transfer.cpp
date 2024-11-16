@@ -241,6 +241,7 @@ std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& targe
 
     return {smoothed_weights, vertices_ids_to_smooth};
 }
+
 bool test_find_closest_point_on_surface() {
     Eigen::MatrixXd vertices(3, 3);
     vertices << -1, -1, -1,
@@ -259,6 +260,7 @@ bool test_find_closest_point_on_surface() {
 
     Eigen::MatrixXd closest_points = find_closest_point_on_surface(test_points, vertices, triangles);
     std::cout << "Closest Points:\n" << closest_points << std::endl;
+    std::cout << "Expected Points:\n" << expected_points << std::endl;
     if (!closest_points.isApprox(expected_points, 1e-6)) {
         return false;
     }
@@ -286,6 +288,7 @@ bool test_interpolate_attribute_from_bary() {
 
     Eigen::MatrixXd result = interpolate_attribute_from_bary(vertex_attributes, barycentric_coordinates, primitive_indices, mesh_triangles);
     std::cout << "Interpolated Attributes:\n" << result << std::endl;
+    std::cout << "Expected Output:\n" << expected_output << std::endl;
     if (!result.isApprox(expected_output, 1e-6)) {
         return false;
     }
@@ -300,6 +303,7 @@ bool test_normalize_vector() {
 
     Eigen::VectorXd normalized = normalize_vector(vector);
     std::cout << "Normalized Vector:\n" << normalized << std::endl;
+    std::cout << "Expected Vector:\n" << expected << std::endl;
     if (!normalized.isApprox(expected, 1e-6)) {
         return false;
     }
@@ -342,7 +346,9 @@ bool test_find_matches_closest_surface() {
 
     auto [matched, target_weights] = find_matches_closest_surface(source_vertices, source_triangles, source_normals, target_vertices, target_triangles, target_normals, source_weights, distance_threshold_squared, angle_threshold_degrees);
     std::cout << "Matched:\n" << matched << std::endl;
+    std::cout << "Expected Matched:\n" << expected_matched << std::endl;
     std::cout << "Target Weights:\n" << target_weights << std::endl;
+    std::cout << "Expected Weights:\n" << expected_weights << std::endl;
     if (!matched.isApprox(expected_matched) || !target_weights.isApprox(expected_weights, 1e-6)) {
         return false;
     }
@@ -389,6 +395,7 @@ bool test_inpaint() {
 
     auto [W_inpainted, success] = inpaint(V2, F2, W2, Matched);
     std::cout << "Inpainted Weights:\n" << W_inpainted << std::endl;
+    std::cout << "Expected Inpainted Weights:\n" << expected_W_inpainted << std::endl;
     if (success != true || !W_inpainted.isApprox(expected_W_inpainted, 1e-6)) {
         return false;
     }
@@ -427,7 +434,9 @@ bool test_smooth() {
     auto [smoothed_weights, vertices_ids_to_smooth] = smooth(target_vertices, target_faces, skinning_weights, matched, distance_threshold, 1, 0.2);
 
     std::cout << "Smoothed Weights:\n" << smoothed_weights << std::endl;
+    std::cout << "Expected Smoothed Weights:\n" << expected_smoothed_weights << std::endl;
     std::cout << "Vertices IDs to Smooth:\n" << vertices_ids_to_smooth << std::endl;
+    std::cout << "Expected Vertices IDs to Smooth:\n" << expected_vertices_ids_to_smooth << std::endl;
 
     if (!smoothed_weights.isApprox(expected_smoothed_weights, 1e-6) || !vertices_ids_to_smooth.isApprox(expected_vertices_ids_to_smooth)) {
         return false;
