@@ -1,3 +1,4 @@
+#include "test_robust_weight_transfer.h"
 
 #include <Eigen/Dense>
 #include <vector>
@@ -446,7 +447,6 @@ bool test_smooth() {
 
 extern "C" Variant run_tests() {
     bool all_tests_passed = true;
-
     if (!test_find_closest_point_on_surface()) {
         std::cerr << "test_find_closest_point_on_surface failed" << std::endl;
         all_tests_passed = false;
@@ -475,7 +475,6 @@ extern "C" Variant run_tests() {
         std::cerr << "test_inpaint failed" << std::endl;
         all_tests_passed = false;
     }
-
     if (all_tests_passed) {
         std::cout << "All tests passed!" << std::endl;
         return Variant(0);
