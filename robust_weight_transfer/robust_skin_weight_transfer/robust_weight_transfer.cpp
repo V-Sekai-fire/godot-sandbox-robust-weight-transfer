@@ -9,9 +9,6 @@
 #include <fstream>
 #include <igl/AABB.h>
 
-extern "C" void funlockfile(FILE *) {}
-void flockfile(FILE *) {}
-
 void barycentric_coordinates_tri(const Eigen::MatrixXd &P, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &C, Eigen::MatrixXd &BC) {
     BC.resize(P.rows(), 3);
     BC.setZero();
