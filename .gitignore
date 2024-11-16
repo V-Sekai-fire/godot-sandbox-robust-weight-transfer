@@ -18,3 +18,5 @@ generated_api.hpp
 addons/godot_sandbox/bin/~libgodot_riscv.windows.template_release.double.x86_64.dll
 json_diff_sample/json_diff/build/
 json_diff_sample/json_diff/generated_api.hpp
+
+robust_weight_transfer/robust_skin_weight_transfer/robust_weight_transfer.elf
