@@ -81,6 +81,7 @@ IGL_INLINE void igl::copyleft::cgal::projected_delaunay(
     } else if(const std::vector<Point_3 > *polyp = 
         CGAL::object_cast< std::vector<Point_3 > >(&obj))
     {
+      //cerr<<REDRUM("Poly...")<<endl;
       const std::vector<Point_3 > & poly = *polyp;
       const Index m = poly.size();
       assert(m>=2);
@@ -91,7 +92,8 @@ IGL_INLINE void igl::copyleft::cgal::projected_delaunay(
       }
     }else
     {
-      assert(false && "What is this object?!");
+      cerr<<"What is this object?!"<<endl;
+      assert(false);
     }
   }
 }

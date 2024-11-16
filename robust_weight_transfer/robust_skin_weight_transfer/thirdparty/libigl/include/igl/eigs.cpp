@@ -109,14 +109,10 @@ IGL_INLINE bool igl::eigs(
             case Eigen::Success:
               break;
             case Eigen::NumericalIssue:
-#ifdef IGL_EIGS_DEBUG
               cerr<<"Error: Numerical issue."<<endl;
-#endif
               return false;
             default:
-#ifdef IGL_EIGS_DEBUG
               cerr<<"Error: Other."<<endl;
-#endif
               return false;
           }
           const VectorXS rhs = B*x;

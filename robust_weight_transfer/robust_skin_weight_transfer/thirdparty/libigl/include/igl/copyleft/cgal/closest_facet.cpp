@@ -154,9 +154,8 @@ IGL_INLINE void igl::copyleft::cgal::closest_facet(
       corner_idx = 0;
     } else 
     {
-      // Should never happen.
-      //std::cerr << "s: " << s << "\t d:" << d << std::endl;
-      //std::cerr << F.row(preferred_facet) << std::endl;
+      std::cerr << "s: " << s << "\t d:" << d << std::endl;
+      std::cerr << F.row(preferred_facet) << std::endl;
       throw std::runtime_error(
           "Invalid connectivity, edge does not belong to facet");
     }

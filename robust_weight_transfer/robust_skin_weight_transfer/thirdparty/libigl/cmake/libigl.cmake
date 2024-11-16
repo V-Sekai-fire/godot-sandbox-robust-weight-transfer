@@ -25,6 +25,7 @@ igl_include_optional(xml)
 # Libigl copyleft modules
 igl_include_optional(copyleft core)
 igl_include_optional(copyleft cgal)
+igl_include_optional(copyleft comiso)
 igl_include_optional(copyleft tetgen)
 
 # Libigl restricted modules

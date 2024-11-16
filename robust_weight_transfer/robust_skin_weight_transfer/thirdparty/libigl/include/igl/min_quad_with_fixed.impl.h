@@ -154,19 +154,13 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
       case Eigen::Success:
         break;
       case Eigen::NumericalIssue:
-#ifdef IGL_MIN_QUAD_WITH_FIXED_CPP_DEBUG
         cerr<<"Error: Numerical issue."<<endl;
-#endif
         return false;
       case Eigen::InvalidInput:
-#ifdef IGL_MIN_QUAD_WITH_FIXED_CPP_DEBUG
         cerr<<"Error: Invalid input."<<endl;
-#endif
         return false;
       default:
-#ifdef IGL_MIN_QUAD_WITH_FIXED_CPP_DEBUG
         cerr<<"Error: Other."<<endl;
-#endif
         return false;
     }
     nc = data.AeqTQR.rank();
@@ -231,14 +225,10 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
         case Eigen::Success:
           break;
         case Eigen::NumericalIssue:
-#ifdef IGL_MIN_QUAD_WITH_FIXED_CPP_DEBUG
           cerr<<"Error: Numerical issue."<<endl;
-#endif
           return false;
         default:
-#ifdef IGL_MIN_QUAD_WITH_FIXED_CPP_DEBUG
           cerr<<"Error: Other."<<endl;
-#endif
           return false;
       }
       data.solver_type = min_quad_with_fixed_data<T>::LLT;
@@ -262,14 +252,10 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
           case Eigen::Success:
             break;
           case Eigen::NumericalIssue:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
             cerr<<"Error: Numerical issue."<<endl;
-#endif
             return false;
           default:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
             cerr<<"Error: Other."<<endl;
-#endif
             return false;
         }
         data.solver_type = min_quad_with_fixed_data<T>::LDLT;
@@ -287,19 +273,13 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
           case Eigen::Success:
             break;
           case Eigen::NumericalIssue:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
             cerr<<"Error: Numerical issue."<<endl;
             return false;
-#endif
           case Eigen::InvalidInput:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
             cerr<<"Error: Invalid Input."<<endl;
-#endif
             return false;
           default:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
             cerr<<"Error: Other."<<endl;
-#endif
             return false;
         }
         data.solver_type = min_quad_with_fixed_data<T>::LU;
@@ -376,14 +356,10 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
         case Eigen::Success:
           break;
         case Eigen::NumericalIssue:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
           cerr<<"Error: Numerical issue."<<endl;
-#endif
           return false;
         default:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
           cerr<<"Error: Other."<<endl;
-#endif
           return false;
       }
       data.solver_type = min_quad_with_fixed_data<T>::QR_LLT;
@@ -464,7 +440,7 @@ IGL_INLINE bool igl::min_quad_with_fixed_solve(
     }
 
     // Build right hand side
-    MatrixXT BBequlcols = BBeq(data.unknown_lagrange,Eigen::all);
+    MatrixXT BBequlcols = BBeq.block(0, 0, data.unknown_lagrange.size(), BBeq.cols());
     MatrixXT NB;
     if(kr == 0)
     {
@@ -489,9 +465,7 @@ IGL_INLINE bool igl::min_quad_with_fixed_solve(
         sol = data.lu.solve(NB);
         break;
       default:
-#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
         cerr<<"Error: invalid solver type"<<endl;
-#endif
         return false;
     }
     //std::cout<<"sol=["<<std::endl<<sol<<std::endl<<"];"<<std::endl;
@@ -515,7 +489,7 @@ IGL_INLINE bool igl::min_quad_with_fixed_solve(
       //data.AeqTQR.colsPermutation().transpose() * (-data.Aeqk * Y + Beq);
       data.AeqTET * (-data.Aeqk * Y + Beq.replicate(1,Beq.cols()==cols?1:cols));
     // Where did this -0.5 come from? Probably the same place as above.
-    MatrixXT Bu = B(data.unknown,Eigen::all);
+    MatrixXT Bu = B.block(data.unknown(0), 0, data.unknown.size(), B.cols());
     MatrixXT NB;
     NB = -0.5*(Bu.replicate(1,B.cols()==cols?1:cols) + data.preY * Y);
     // Trim eff_Beq

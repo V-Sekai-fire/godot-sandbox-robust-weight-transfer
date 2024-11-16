@@ -22,7 +22,6 @@
 #include <sys/time.h>
 #endif
 #include <cstddef>
-#include <cstdint>
 
 namespace igl
 {
@@ -70,9 +69,9 @@ namespace igl
     /// @param[in] endTime   end time
     /// @param[in] startTime start time
     /// @return time
-    double subtractTimes( std::uint64_t endTime, std::uint64_t startTime )
+    double subtractTimes( uint64_t endTime, uint64_t startTime )
     {
-      std::uint64_t difference = endTime - startTime;
+      uint64_t difference = endTime - startTime;
       static double conversion = 0.0;
 
       if( conversion == 0.0 )
@@ -176,8 +175,8 @@ namespace igl
     LARGE_INTEGER startCount;     
     LARGE_INTEGER endCount;       
 #elif __APPLE__
-    std::uint64_t startCount;           
-    std::uint64_t endCount;             
+    uint64_t startCount;           
+    uint64_t endCount;             
 #else
     timeval startCount;           
     timeval endCount;             

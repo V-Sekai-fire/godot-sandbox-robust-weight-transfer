@@ -2,7 +2,6 @@
 #include <fstream>
 
 #include "tinyply.h"
-#include <stdint.h>
 
 
 namespace igl
