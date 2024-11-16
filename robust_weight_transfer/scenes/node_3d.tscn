@@ -1,12 +1,9 @@
 [gd_scene load_steps=2 format=3 uid="uid://bkhi5j0mx10yc"]
 
-[ext_resource type="Script" path="res://robust_weight_transfer/core/weight_transfer.gd" id="1_kfnr8"]
+[ext_resource type="Script" uid="uid://bg3xsfe5vw5x6" path="res://robust_weight_transfer/core/weight_transfer.gd" id="1_kfnr8"]
 
 [node name="Node3D" type="Node3D"]
 
 [node name="Sandbox" type="Sandbox" parent="."]
-monitor_global_instance_count = 3
-
-[node name="Sandbox" type="Sandbox" parent="Sandbox"]
-monitor_global_instance_count = 3
+monitor_global_instance_count = 2
 script = ExtResource("1_kfnr8")
