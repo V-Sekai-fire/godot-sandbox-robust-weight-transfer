@@ -11,6 +11,59 @@ import robust_laplacian
 import scipy as sp
 import trimesh
 
+
+def create_diamond():
+    # Define vertices for a small diamond shape scaled to mm
+    scale_factor = 0.005  # Scaling down from meters to millimeters
+    vertices = (
+        np.array(
+            [
+                [0, 0, 1],  # Top vertex
+                [1, 0, 0],  # Side vertex
+                [-1, 0, 0],  # Side vertex
+                [0, 1, 0],  # Side vertex
+                [0, -1, 0],  # Side vertex
+                [0, 0, -1],  # Bottom vertex
+            ]
+        )
+        * scale_factor
+    )  # Apply scale factor to each vertex
+
+    # Define faces connecting the vertices
+    faces = np.array([[0, 1, 3], [0, 3, 2], [0, 2, 4], [0, 4, 1], [5, 3, 1], [5, 2, 3], [5, 4, 2], [5, 1, 4]])
+
+    return trimesh.Trimesh(vertices=vertices, faces=faces)
+
+
+def find_closest_point_on_surface(points, mesh_vertices, mesh_triangles):
+    """
+    Args:
+        points (np.ndarray): An array of shape (#points, 3), where each row represents the coordinates of a point in 3D space.
+        mesh_vertices (np.ndarray): An array of shape (#mesh_vertices, 3), representing the vertices of the target mesh surface.
+        mesh_triangles (np.ndarray): An array of shape (#mesh_triangles, 3), where each row contains indices that correspond to the vertices forming a triangle on the target mesh surface.
+
+    Returns:
+        tuple: A tuple containing four elements:
+            - smallest_squared_distances (np.ndarray): An array of shape (#points,), which holds the smallest squared distances from each input point to the closest point on the target mesh surface.
+            - primitive_indices (np.ndarray): An array of shape (#points,), indicating the index of the triangle in `mesh_triangles` where the closest point was found for each input point.
+            - closest_points (np.ndarray): An array of shape (#points, 3), representing the coordinates of the closest points on the target mesh surface for each input point.
+            - barycentric_coordinates (np.ndarray): An array of shape (#points, 3), providing the barycentric coordinates of each closest point relative to the vertices of the triangle it lies on.
+    """
+    points = np.asarray(points, dtype=np.float64)
+    mesh_vertices = np.asarray(mesh_vertices, dtype=np.float64)
+    mesh_triangles = np.asarray(mesh_triangles, dtype=np.int32)
+
+    smallest_squared_distances, primitive_indices, closest_points = igl.point_mesh_squared_distance(
+        points, mesh_vertices, mesh_triangles
+    )
+    closest_triangles = mesh_triangles[primitive_indices]
+    vertex_1 = mesh_vertices[closest_triangles[:, 0]]
+    vertex_2 = mesh_vertices[closest_triangles[:, 1]]
+    vertex_3 = mesh_vertices[closest_triangles[:, 2]]
+    barycentric_coordinates = igl.barycentric_coordinates_tri(closest_points, vertex_1, vertex_2, vertex_3)
+    return smallest_squared_distances, primitive_indices, closest_points, barycentric_coordinates
+
+
 def interpolate_attribute_from_bary(vertex_attributes, barycentric_coordinates, primitive_indices, mesh_triangles):
     """
     Interpolate per-vertex attributes vertex_attributes via barycentric coordinates barycentric_coordinates of the mesh_triangles[primitive_indices,:] vertices
@@ -551,3 +604,11 @@ class TestMeshProcessing(unittest.TestCase):
 
         np.testing.assert_array_almost_equal(smoothed_weights, expected_smoothed_weights)
         np.testing.assert_array_equal(vertices_ids_to_smooth, expected_vertices_ids_to_smooth)
+
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    if args.test:
+        unittest.main()
+    else:
+        create_cages(args.source_mesh, args.target_mesh, args.cage_file)
