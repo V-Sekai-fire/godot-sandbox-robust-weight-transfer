@@ -444,100 +444,6 @@ bool test_smooth() {
     return true;
 }
 
-extern "C" Array find_matches_closest_surface_mesh(Mesh source_mesh, Mesh target_mesh) {
-    Array result;
-    if (!source_mesh.is_valid()) {
-        std::cerr << "Source mesh is not valid." << std::endl;
-        return result;
-    }
-    if (!target_mesh.is_valid()) {
-        std::cerr << "Target mesh is not valid." << std::endl;
-        return result;
-    }
-
-    for (int i = 0; i < source_mesh.get_surface_count(); ++i) {
-        Array arrays = source_mesh.surface_get_arrays(i);
-        PackedArray<Vector3> source_vertices_godot = arrays.at(Mesh::ARRAY_VERTEX);
-        PackedArray<int32_t> source_indices_godot = arrays.at(Mesh::ARRAY_INDEX);
-        PackedArray<Vector3> source_normals_godot = arrays.at(Mesh::ARRAY_NORMAL);
-
-        auto source_vertices_vec = source_vertices_godot.fetch();
-        Eigen::MatrixXd source_vertices(source_vertices_vec.size(), 3);
-        for (size_t j = 0; j < source_vertices_vec.size(); ++j) {
-            Vector3 v = source_vertices_vec[j];
-            source_vertices.row(j) << v.x, v.y, v.z;
-        }
-
-        auto source_indices_vec = source_indices_godot.fetch();
-        Eigen::MatrixXi source_triangles(source_indices_vec.size() / 3, 3);
-        for (size_t j = 0; j < source_indices_vec.size(); j += 3) {
-            source_triangles.row(j / 3) << source_indices_vec[j], source_indices_vec[j + 1], source_indices_vec[j + 2];
-        }
-
-        auto source_normals_vec = source_normals_godot.fetch();
-        Eigen::MatrixXd source_normals(source_normals_vec.size(), 3);
-        for (size_t j = 0; j < source_normals_vec.size(); ++j) {
-            Vector3 n = source_normals_vec[j];
-            source_normals.row(j) << n.x, n.y, n.z;
-        }
-
-        for (int j = 0; j < target_mesh.get_surface_count(); ++j) {
-            Array target_arrays = target_mesh.surface_get_arrays(j);
-            PackedArray<Vector3> target_vertices_godot = target_arrays.at(Mesh::ARRAY_VERTEX);
-            PackedArray<int32_t> target_indices_godot = target_arrays.at(Mesh::ARRAY_INDEX);
-            PackedArray<Vector3> target_normals_godot = target_arrays.at(Mesh::ARRAY_NORMAL);
-
-            auto target_vertices_vec = target_vertices_godot.fetch();
-            Eigen::MatrixXd target_vertices(target_vertices_vec.size(), 3);
-            for (size_t k = 0; k < target_vertices_vec.size(); ++k) {
-                Vector3 v = target_vertices_vec[k];
-                target_vertices.row(k) << v.x, v.y, v.z;
-            }
-
-            auto target_indices_vec = target_indices_godot.fetch();
-            Eigen::MatrixXi target_triangles(target_indices_vec.size() / 3, 3);
-            for (size_t k = 0; k < target_indices_vec.size(); k += 3) {
-                target_triangles.row(k / 3) << target_indices_vec[k], target_indices_vec[k + 1], target_indices_vec[k + 2];
-            }
-
-            auto target_normals_vec = target_normals_godot.fetch();
-            Eigen::MatrixXd target_normals(target_normals_vec.size(), 3);
-            for (size_t k = 0; k < target_normals_vec.size(); ++k) {
-                Vector3 n = target_normals_vec[k];
-                target_normals.row(k) << n.x, n.y, n.z;
-            }
-
-            Eigen::MatrixXd source_weights(source_vertices.rows(), 2);
-            source_weights.setZero();
-
-            double distance_threshold_squared = 0.5;
-            double angle_threshold_degrees = 10;
-
-            auto [matched, target_weights] = find_matches_closest_surface(source_vertices, source_triangles, source_normals, target_vertices, target_triangles, target_normals, source_weights, distance_threshold_squared, angle_threshold_degrees);
-
-            std::vector<int32_t> matched_std;
-            for (int m = 0; m < matched.size(); ++m) {
-                matched_std.push_back(matched(m));
-            }
-
-            std::vector<Vector2> target_weights_std;
-            for (int t = 0; t < target_weights.rows(); ++t) {
-                target_weights_std.push_back(Vector2(target_weights(t, 0), target_weights(t, 1)));
-            }
-
-            Dictionary surface_result;
-            surface_result["matched"] = PackedArray<int32_t>(matched_std);
-            surface_result["target_weights"] = PackedArray<Vector2>(target_weights_std);
-            result.append(surface_result);
-
-            std::cout << "Surface " << j << " processed." << std::endl;
-        }
-        std::cout << "Source surface " << i << " processed." << std::endl;
-    }
-
-    return result;
-}
-
 extern "C" Variant run_tests() {
     bool all_tests_passed = true;
     if (!test_find_closest_point_on_surface()) {
@@ -564,10 +470,10 @@ extern "C" Variant run_tests() {
         std::cerr << "test_smooth failed" << std::endl;
         all_tests_passed = false;
     }
-    // if (!test_inpaint()) {
-    //     std::cerr << "test_inpaint failed" << std::endl;
-    //     all_tests_passed = false;
-    // }
+    if (!test_inpaint()) {
+        std::cerr << "test_inpaint failed" << std::endl;
+        all_tests_passed = false;
+    }
     if (all_tests_passed) {
         std::cout << "All tests passed!" << std::endl;
         return Variant(0);
