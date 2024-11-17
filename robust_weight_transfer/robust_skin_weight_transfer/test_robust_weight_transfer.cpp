@@ -10,6 +10,8 @@
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
 #include <igl/adjacency_list.h>
+#include <igl/invert_diag.h>
+#include <igl/slice_mask.h>
 #include <igl/min_quad_with_fixed.h>
 
 Eigen::MatrixXd find_closest_point_on_surface(const Eigen::MatrixXd& p_test_points, const Eigen::MatrixXd& p_vertices, const Eigen::MatrixXi& p_triangles) {
@@ -102,144 +104,141 @@ bool is_valid_array(const Eigen::MatrixXd& p_matrix) {
 }
 
 /**
- * Inpaint weights for all the vertices on the target mesh for which we didn't
+ * Inpaint weights for all the vertices on the target mesh for which  we didnt 
  * find a good match on the source (i.e. Matched[i] == False).
- *
- * Args:
- *     V2: #V2 by 3 target mesh vertices
- *     F2: #F2 by 3 target mesh triangles indices
- *     W2: #V2 by num_bones, where W2[i,:] are skinning weights copied directly from source using closest point method
- *     Matched: #V2 array of bools, where Matched[i] is True if we found a good match for vertex i on the source mesh
- *
- * Returns:
- *     W_inpainted: #V2 by num_bones, final skinning weights where we inpainted weights for all vertices i where Matched[i] == False
- *     success: true if inpainting succeeded, false otherwise
+ * 
+ *  V2: #V2 by 3 target mesh vertices
+ *  F2: #F2 by 3 target mesh triangles indices
+ *  W2: #V2 by num_bones, where W2[i,:] are skinning weights copied directly from source using closest point method
+ *  Matched: #V2 array of bools, where Matched[i] is True if we found a good match for vertex i on the source mesh
+ *  W_inpainted: #V2 by num_bones, final skinning weights where we inpainted weights for all vertices i where Matched[i] == False
+ *  success: true if inpainting succeeded, false otherwise
  */
-std::tuple<Eigen::MatrixXd, bool> inpaint(const Eigen::MatrixXd& p_V2, const Eigen::MatrixXi& p_F2, const Eigen::MatrixXd& p_W2, const Eigen::VectorXi& p_Matched) {
-    if (p_V2.cols() != 3) {
-        return {Eigen::MatrixXd(), false};
-    }
-    if (p_F2.cols() != 3 || p_F2.maxCoeff() >= p_V2.rows()) {
-        return {Eigen::MatrixXd(), false};
-    }
-    if (p_W2.rows() != p_V2.rows()) {
-        return {Eigen::MatrixXd(), false};
-    }
-    if (p_Matched.size() != p_V2.rows()) {
-        return {Eigen::MatrixXd(), false};
-    }
+bool inpaint(const Eigen::MatrixXd& p_V2, const Eigen::MatrixXi& p_F2, const Eigen::MatrixXd& p_W2, const Eigen::Array<bool,Eigen::Dynamic,1>& p_Matched, Eigen::MatrixXd& r_W_inpainted)
+{
+    // Compute the laplacian
 
-    Eigen::SparseMatrix<double> L, M;
+    Eigen::SparseMatrix<double> L, M, Minv;
     igl::cotmatrix(p_V2, p_F2, L);
-    igl::massmatrix(p_V2, p_F2, igl::MASSMATRIX_TYPE_VORONOI, M);
-    L = -L;  // Flip the sign of the Laplacian
-    Eigen::SparseMatrix<double> Minv = M.cwiseInverse();
-    Eigen::SparseMatrix<double> Q = L.transpose() * Minv * L;
+    igl::massmatrix(p_V2, p_F2, igl::MassMatrixType::MASSMATRIX_TYPE_VORONOI, M);
+    igl::invert_diag(M, Minv);
+
+    Eigen::SparseMatrix<double> Q = -L + L*Minv*L;
+    
+    Eigen::SparseMatrix<double> Aeq;
+
+    Eigen::VectorXd Beq;
 
     Eigen::MatrixXd B = Eigen::MatrixXd::Zero(L.rows(), p_W2.cols());
-    std::vector<int> b;
+
+    Eigen::VectorXi b_all = Eigen::VectorXi::LinSpaced(p_V2.rows(), 0, p_V2.rows()-1);
+      
+    Eigen::VectorXi b;
+    igl::slice_mask(b_all, p_Matched, 1, b);
+    
     Eigen::MatrixXd bc;
+    igl::slice_mask(p_W2, p_Matched, 1, bc);    
+    
+    igl::min_quad_with_fixed_data<double> mqwf;
+    igl::min_quad_with_fixed_precompute(Q,b,Aeq,true,mqwf);
+    
+    bool result = igl::min_quad_with_fixed_solve(mqwf,B,bc,Beq,r_W_inpainted);
 
-    for (int i = 0; i < p_Matched.size(); ++i) {
-        if (p_Matched(i)) {
-            b.push_back(i);
-        }
-    }
-
-    bc.resize(b.size(), p_W2.cols());
-    for (int i = 0; i < b.size(); ++i) {
-        bc.row(i) = p_W2.row(b[i]);
-    }
-
-    Eigen::MatrixXd W_inpainted = Eigen::MatrixXd::Zero(L.rows(), p_W2.cols());
-    Eigen::VectorXi b_vec = Eigen::Map<Eigen::VectorXi>(b.data(), b.size());
-    Eigen::SparseMatrix<double> Aeq(0, 0);
-    Eigen::MatrixXd Beq(0, p_W2.cols());
-    igl::min_quad_with_fixed_data<double> data;
-    igl::min_quad_with_fixed_precompute(Q, b_vec, Aeq, true, data);
-    Eigen::MatrixXd Z;
-    bool success = igl::min_quad_with_fixed_solve(data, B, bc, Beq, W_inpainted, Z);
-    return {W_inpainted, success};
+    return result;
 }
 
-std::tuple<Eigen::MatrixXd, Eigen::VectorXi> smooth(const Eigen::MatrixXd& p_target_vertices, const Eigen::MatrixXi& p_target_faces, const Eigen::MatrixXd& p_skinning_weights, const Eigen::VectorXi& matched, double p_distance_threshold, int p_num_smooth_iter_steps, double p_smooth_alpha) {
-    Eigen::VectorXi not_matched(matched.size());
-    for (int i = 0; i < matched.size(); ++i) {
-        not_matched(i) = (matched(i) == 0) ? 1 : 0;
-    }
-    Eigen::VectorXi vertices_ids_to_smooth = Eigen::VectorXi::Zero(p_target_vertices.rows());
 
-    std::vector<std::vector<int>> adjacency_list;
-    igl::adjacency_list(p_target_faces, adjacency_list);
+/**
+ * Smooth weights in the areas for which weights were inpainted and also their close neighbours.
+ * 
+ *  V2: #V2 by 3 target mesh vertices
+ *  F2: #F2 by 3 target mesh triangles indices
+ *  W2: #V2 by num_bones skinning weights
+ *  Matched: #V2 array of bools, where Matched[i] is True if we found a good match for vertex i on the source mesh
+ *  dDISTANCE_THRESHOLD_SQRD: scalar distance threshold
+ *  num_smooth_iter_steps: scalar number of smoothing steps
+ *  smooth_alpha: scalar the smoothing strength      
+ *  W2_smoothed: #V2 by num_bones new smoothed weights
+ *  VIDs_to_smooth: 1D array of vertex IDs for which smoothing was applied
+ */
+void smooth(Eigen::MatrixXd& W2_smoothed,
+            Eigen::Array<bool,Eigen::Dynamic,1>& VIDs_to_smooth,
+            const Eigen::MatrixXd& V2, 
+            const Eigen::MatrixXi& F2, 
+            const Eigen::MatrixXd& W2, 
+            const Eigen::Array<bool,Eigen::Dynamic,1>& Matched, 
+            const double dDISTANCE_THRESHOLD, 
+            const double num_smooth_iter_steps, 
+            const double smooth_alpha)
+{
+    Eigen::Array<bool,Eigen::Dynamic,1> NotMatched = Matched.select(Eigen::Array<bool,Eigen::Dynamic,1>::Constant(Matched.size(), false), Eigen::Array<bool,Eigen::Dynamic,1>::Constant(Matched.size(), true));
+    VIDs_to_smooth = NotMatched; //.array(NotMatched, copy=True)
 
-    auto get_points_within_distance = [&](int vertex_id) {
-        std::vector<int> result;
-        if (vertex_id >= adjacency_list.size() || vertex_id < 0) {
-            return result;
-        }
+    std::vector<std::vector<int> > adj_list;
+    igl::adjacency_list(F2, adj_list);
 
+    auto get_points_within_distance = [&](const Eigen::MatrixXd& V, const int VID, const double distance)
+    {
+        // Get all neighbours of vertex VID within dDISTANCE_THRESHOLD   
         std::queue<int> queue;
+        queue.push(VID);
+
         std::set<int> visited;
-        queue.push(vertex_id);
-        visited.insert(vertex_id);
-
-        while (!queue.empty()) {
-            int current_vertex = queue.front();
+        visited.insert(VID);
+        while (!queue.empty())
+        {
+            const int vv = queue.front();
             queue.pop();
-
-            if (current_vertex >= adjacency_list.size() || current_vertex < 0) {
-                continue;
-            }
-
-            for (int neighbor : adjacency_list[current_vertex]) {
-                if (visited.find(neighbor) == visited.end() && (p_target_vertices.row(vertex_id) - p_target_vertices.row(neighbor)).norm() < p_distance_threshold) {
-                    visited.insert(neighbor);
-                    queue.push(neighbor);
+            
+            auto neigh = adj_list[vv];
+            for (auto nn : neigh)
+            {
+                if (!VIDs_to_smooth[nn] && (V.row(VID) - V.row(nn)).norm() < distance)
+                {
+                    VIDs_to_smooth[nn] = true;
+                    if (visited.find(nn) == visited.end())
+                    {
+                        queue.push(nn);
+                        visited.insert(nn);
+                    }
                 }
             }
         }
-
-        result.assign(visited.begin(), visited.end());
-        return result;
     };
 
-    for (int i = 0; i < p_target_vertices.rows(); ++i) {
-        if (not_matched(i)) {
-            std::vector<int> affected_vertices = get_points_within_distance(i);
-            for (int vertex : affected_vertices) {
-                vertices_ids_to_smooth(vertex) = 1;
-            }
+    for (int i = 0; i < V2.rows(); ++i)
+    {
+        if (NotMatched[i])
+        {
+            get_points_within_distance(V2, i, dDISTANCE_THRESHOLD);
         }
     }
 
-    Eigen::MatrixXd smoothed_weights = p_skinning_weights;
-    for (int step_idx = 0; step_idx < p_num_smooth_iter_steps; ++step_idx) {
-        Eigen::MatrixXd new_weights = smoothed_weights;
-        for (int i = 0; i < p_target_vertices.rows(); ++i) {
-            if (vertices_ids_to_smooth(i)) {
-                if (i >= adjacency_list.size()) {
-                    continue;
-                }
-                const std::vector<int>& neighbors = adjacency_list[i];
-                if (neighbors.empty()) {
-                    continue;
-                }
+    W2_smoothed = W2;
 
-                Eigen::RowVectorXd weight = smoothed_weights.row(i);
-                Eigen::RowVectorXd new_weight = (1 - p_smooth_alpha) * weight;
+    for (int step_idx = 0;  step_idx < num_smooth_iter_steps; ++step_idx)
+    {
+        for (int i = 0; i < V2.rows(); ++i)
+        {
+            if (VIDs_to_smooth[i])
+            {
+                auto neigh = adj_list[i];
+                int num = neigh.size();
+                Eigen::VectorXd weight = W2_smoothed.row(i);
 
-                for (int neighbor : neighbors) {
-                    new_weight += (smoothed_weights.row(neighbor) / neighbors.size()) * p_smooth_alpha;
+                Eigen::VectorXd new_weight = (1.0-smooth_alpha)*weight;
+
+                for (auto influence_idx : neigh)
+                {
+                    Eigen::VectorXd weight_connected = W2_smoothed.row(influence_idx);
+                    new_weight = new_weight + (smooth_alpha/num) * weight_connected;
                 }
-
-                new_weights.row(i) = new_weight;
+                
+                W2_smoothed.row(i) = new_weight; 
             }
         }
-        smoothed_weights = new_weights;
     }
-
-    return {smoothed_weights, vertices_ids_to_smooth};
-}
+} 
 
 bool test_find_closest_point_on_surface() {
     Eigen::MatrixXd vertices(3, 3);
@@ -384,15 +383,17 @@ bool test_inpaint() {
           0, 1,
           0.5, 0.5,
           0, 0;
-    Eigen::VectorXi Matched(4);
-    Matched << 1, 1, 1, 0;
+    Eigen::Array<bool, Eigen::Dynamic, 1> Matched(4);
+    Matched << true, true, true, false;
     Eigen::MatrixXd expected_W_inpainted(4, 2);
     expected_W_inpainted << 1.0, 0.0,
                             0.0, 1.0,
                             0.5, 0.5,
                             0.117647, 0.882353;
 
-    auto [W_inpainted, success] = inpaint(V2, F2, W2, Matched);
+    Eigen::MatrixXd W_inpainted(4, 2);
+    
+    bool success = inpaint(V2, F2, W2, Matched, W_inpainted);
     std::cout << "Inpainted Weights:\n" << W_inpainted << std::endl;
     std::cout << "Expected Inpainted Weights:\n" << expected_W_inpainted << std::endl;
     if (success != true || !W_inpainted.isApprox(expected_W_inpainted, 1e-6)) {
@@ -417,27 +418,29 @@ bool test_smooth() {
                         0.5, 0.5,
                         0.25, 0.75,
                         0.1, 0.9;
-    Eigen::VectorXi matched(5);
-    matched << 1, 1, 1, 0, 0;
+    Eigen::Array<bool, Eigen::Dynamic, 1> matched(5);
+    matched << true, true, true, false, false;
     double distance_threshold = 1.5;
 
     Eigen::MatrixXd expected_smoothed_weights(5, 2);
     expected_smoothed_weights << 0.85, 0.15,
-                                 0.116667, 0.883333,
-                                 0.483333, 0.516667,
-                                 0.25, 0.75,
-                                 0.1, 0.9;
-    Eigen::VectorXi expected_vertices_ids_to_smooth(5);
-    expected_vertices_ids_to_smooth << 1, 1, 1, 1, 0;
+                                 0.106667, 0.893333,
+                                 0.480444, 0.519556,
+                                 0.258711, 0.741289,
+                                 0.08, 0.72;
+    Eigen::Array<bool, Eigen::Dynamic, 1> expected_vertices_ids_to_smooth(5);
+    expected_vertices_ids_to_smooth << true, true, true, true, true;
 
-    auto [smoothed_weights, vertices_ids_to_smooth] = smooth(target_vertices, target_faces, skinning_weights, matched, distance_threshold, 1, 0.2);
+    Eigen::MatrixXd smoothed_weights;
+    Eigen::Array<bool, Eigen::Dynamic, 1> vertices_ids_to_smooth;
+    smooth(smoothed_weights, vertices_ids_to_smooth, target_vertices, target_faces, skinning_weights, matched, distance_threshold, 1, 0.2);
 
     std::cout << "Smoothed Weights:\n" << smoothed_weights << std::endl;
     std::cout << "Expected Smoothed Weights:\n" << expected_smoothed_weights << std::endl;
     std::cout << "Vertices IDs to Smooth:\n" << vertices_ids_to_smooth << std::endl;
     std::cout << "Expected Vertices IDs to Smooth:\n" << expected_vertices_ids_to_smooth << std::endl;
 
-    if (!smoothed_weights.isApprox(expected_smoothed_weights, 1e-6) || !vertices_ids_to_smooth.isApprox(expected_vertices_ids_to_smooth)) {
+    if (!smoothed_weights.isApprox(expected_smoothed_weights, 1e-6) || (vertices_ids_to_smooth != expected_vertices_ids_to_smooth).any()) {
         return false;
     }
     return true;
