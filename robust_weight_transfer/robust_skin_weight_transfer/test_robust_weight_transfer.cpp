@@ -532,23 +532,23 @@ extern "C" Variant find_matches_closest_surface_mesh(Mesh source_mesh, Mesh targ
         PackedArray<int32_t> source_indices_godot = arrays.at(Mesh::ARRAY_INDEX);
         PackedArray<Vector3> source_normals_godot = arrays.at(Mesh::ARRAY_NORMAL);
 
-        Eigen::MatrixXd source_vertices(source_vertices_godot.size(), 3);
-        for (int j = 0; j < source_vertices_godot.size(); ++j) {
-            Vector3 v = source_vertices_godot[j];
+        auto source_vertices_vec = source_vertices_godot.fetch();
+        Eigen::MatrixXd source_vertices(source_vertices_vec.size(), 3);
+        for (size_t j = 0; j < source_vertices_vec.size(); ++j) {
+            Vector3 v = source_vertices_vec[j];
             source_vertices.row(j) << v.x, v.y, v.z;
         }
 
-        double move_amount = 0.1;
-        source_vertices.array() += move_amount;
-
-        Eigen::MatrixXi source_triangles(source_indices_godot.size() / 3, 3);
-        for (int j = 0; j < source_indices_godot.size(); j += 3) {
-            source_triangles.row(j / 3) << source_indices_godot[j], source_indices_godot[j + 1], source_indices_godot[j + 2];
+        auto source_indices_vec = source_indices_godot.fetch();
+        Eigen::MatrixXi source_triangles(source_indices_vec.size() / 3, 3);
+        for (size_t j = 0; j < source_indices_vec.size(); j += 3) {
+            source_triangles.row(j / 3) << source_indices_vec[j], source_indices_vec[j + 1], source_indices_vec[j + 2];
         }
 
-        Eigen::MatrixXd source_normals(source_normals_godot.size(), 3);
-        for (int j = 0; j < source_normals_godot.size(); ++j) {
-            Vector3 n = source_normals_godot[j];
+        auto source_normals_vec = source_normals_godot.fetch();
+        Eigen::MatrixXd source_normals(source_normals_vec.size(), 3);
+        for (size_t j = 0; j < source_normals_vec.size(); ++j) {
+            Vector3 n = source_normals_vec[j];
             source_normals.row(j) << n.x, n.y, n.z;
         }
 
@@ -558,24 +558,28 @@ extern "C" Variant find_matches_closest_surface_mesh(Mesh source_mesh, Mesh targ
             PackedArray<int32_t> target_indices_godot = target_arrays.at(Mesh::ARRAY_INDEX);
             PackedArray<Vector3> target_normals_godot = target_arrays.at(Mesh::ARRAY_NORMAL);
 
-            Eigen::MatrixXd target_vertices(target_vertices_godot.size(), 3);
-            for (int k = 0; k < target_vertices_godot.size(); ++k) {
-                Vector3 v = target_vertices_godot[k];
+            auto target_vertices_vec = target_vertices_godot.fetch();
+            Eigen::MatrixXd target_vertices(target_vertices_vec.size(), 3);
+            for (size_t k = 0; k < target_vertices_vec.size(); ++k) {
+                Vector3 v = target_vertices_vec[k];
                 target_vertices.row(k) << v.x, v.y, v.z;
             }
 
-            Eigen::MatrixXi target_triangles(target_indices_godot.size() / 3, 3);
-            for (int k = 0; k < target_indices_godot.size(); k += 3) {
-                target_triangles.row(k / 3) << target_indices_godot[k], target_indices_godot[k + 1], target_indices_godot[k + 2];
+            auto target_indices_vec = target_indices_godot.fetch();
+            Eigen::MatrixXi target_triangles(target_indices_vec.size() / 3, 3);
+            for (size_t k = 0; k < target_indices_vec.size(); k += 3) {
+                target_triangles.row(k / 3) << target_indices_vec[k], target_indices_vec[k + 1], target_indices_vec[k + 2];
             }
 
-            Eigen::MatrixXd target_normals(target_normals_godot.size(), 3);
-            for (int k = 0; k < target_normals_godot.size(); ++k) {
-                Vector3 n = target_normals_godot[k];
+            auto target_normals_vec = target_normals_godot.fetch();
+            Eigen::MatrixXd target_normals(target_normals_vec.size(), 3);
+            for (size_t k = 0; k < target_normals_vec.size(); ++k) {
+                Vector3 n = target_normals_vec[k];
                 target_normals.row(k) << n.x, n.y, n.z;
             }
 
-            Eigen::MatrixXd source_weights = Eigen::MatrixXd::Zero(source_vertices.rows(), 2);
+            Eigen::MatrixXd source_weights(source_vertices.rows(), 2);
+            source_weights.setZero();
 
             double distance_threshold_squared = 0.5;
             double angle_threshold_degrees = 10;
@@ -585,22 +589,37 @@ extern "C" Variant find_matches_closest_surface_mesh(Mesh source_mesh, Mesh targ
 
             find_matches_closest_surface(source_vertices, source_triangles, source_normals, target_vertices, target_triangles, target_normals, source_weights, distance_threshold_squared, angle_threshold_degrees, target_weights, matched);
 
-            PackedArray<int32_t> matched_godot;
-            matched_godot.resize(matched.size());
+            std::vector<int32_t> matched_std;
             for (int m = 0; m < matched.size(); ++m) {
-                matched_godot[m] = matched(m);
+                matched_std.push_back(matched(m));
             }
 
-            PackedArray<Vector2> target_weights_godot;
-            target_weights_godot.resize(target_weights.rows());
+            std::vector<Vector2> target_weights_std;
             for (int t = 0; t < target_weights.rows(); ++t) {
-                target_weights_godot[t] = Vector2(target_weights(t, 0), target_weights(t, 1));
+                target_weights_std.push_back(Vector2(target_weights(t, 0), target_weights(t, 1)));
             }
 
-            result.append(matched_godot);
-            result.append(target_weights_godot);
+            // Debugging output to trace values
+            std::cout << "Matched std vector: ";
+            for (const auto& val : matched_std) {
+                std::cout << val << " ";
+            }
+            std::cout << std::endl;
+
+            std::cout << "Target weights std vector: ";
+            for (const auto& val : target_weights_std) {
+                std::cout << "(" << val.x << ", " << val.y << ") ";
+            }
+            std::cout << std::endl;
+
+            result.append(PackedArray<int32_t>(matched_std));
+            result.append(PackedArray<Vector2>(target_weights_std));
+
+            std::cout << "Surface " << j << " processed." << std::endl;
         }
+        std::cout << "Source surface " << i << " processed." << std::endl;
     }
+
     return true;
 }
 
