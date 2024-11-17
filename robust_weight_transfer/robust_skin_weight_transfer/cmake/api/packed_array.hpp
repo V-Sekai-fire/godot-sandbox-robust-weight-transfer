@@ -3,6 +3,7 @@
 #include <vector>
 #include "color.hpp"
 #include "vector.hpp"
+struct Variant;
 
 /**
  * @brief A reference to a host-side Packed Array.
@@ -14,14 +15,19 @@
  * - PackedFloat64Array
  * - PackedVector2Array
  * - PackedVector3Array
+ * - PackedVector4Array
  * - PackedColorArray
  * - PackedStringArray
  * 
- * @tparam T uint8_t, int32_t, int64_t, float, double, Vector2, Vector3, Color or std::string.
+ * @tparam T uint8_t, int32_t, int64_t, float, double, Vector2, Vector3, Vector4, Color or std::string.
  */
 template <typename T>
 struct PackedArray {
 	constexpr PackedArray() {}
+
+	/// @brief Create a PackedArray from a Variant.
+	/// @param v The Variant.
+	PackedArray(const Variant& v);
 
 	/// @brief Create a PackedArray from a vector of data.
 	/// @param data The initial data.
@@ -49,6 +55,10 @@ struct PackedArray {
 	template <typename... Args>
 	Variant operator () (std::string_view method, Args&&... args);
 
+	/// @brief Cast the PackedArray to a Variant.
+	/// @return Variant The Variant.
+	operator Variant() const;
+
 	/// @brief Create a PackedArray from a host-side Variant index.
 	/// @param idx The host-side Variant index.
 	/// @return PackedArray<T> The PackedArray.
@@ -59,6 +69,6 @@ private:
 	unsigned m_idx = INT32_MIN; // Host-side Variant index.
 
 	static_assert(std::is_same_v<T, uint8_t> || std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> || std::is_same_v<T, float> || std::is_same_v<T, double>
-		|| std::is_same_v<T, Vector2> || std::is_same_v<T, Vector3> || std::is_same_v<T, Color> || std::is_same_v<T, std::string>,
+		|| std::is_same_v<T, Vector2> || std::is_same_v<T, Vector3> || std::is_same_v<T, Vector4> || std::is_same_v<T, Color> || std::is_same_v<T, std::string>,
 		"PackedArray type must be uint8_t, int32_t, int64_t, float, double, Vector2, Vector3 or Color.");
 };
