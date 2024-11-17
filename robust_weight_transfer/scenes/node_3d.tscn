@@ -5,6 +5,4 @@
 [node name="Node3D" type="Node3D"]
 
 [node name="Sandbox" type="Sandbox" parent="."]
-use_unboxed_arguments = false
-monitor_global_instance_count = 2
 script = ExtResource("1_kfnr8")
