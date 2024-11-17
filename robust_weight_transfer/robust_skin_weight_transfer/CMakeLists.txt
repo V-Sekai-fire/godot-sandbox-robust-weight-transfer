@@ -6,6 +6,11 @@ add_subdirectory(cmake)
 add_definitions(-D_USE_MATH_DEFINES)
 add_definitions(-DIGL_PARALLEL_FOR_FORCE_SERIAL)
 
+option(USE_DOUBLE_PRECISION "Use double precision for real numbers" OFF)
+if(USE_DOUBLE_PRECISION)
+  add_definitions(-DDOUBLE_PRECISION_REAL_T)
+endif()
+
 set(PROOT ${CMAKE_SOURCE_DIR}/..)
 
 add_sandbox_program_at(robust_weight_transfer ${PROOT}
