@@ -384,10 +384,10 @@ bool test_inpaint() {
     Eigen::Array<bool, Eigen::Dynamic, 1> Matched(4);
     Matched << true, true, true, false;
     Eigen::MatrixXd expected_W_inpainted(4, 2);
-    expected_W_inpainted << 1.0, 0.0,
-                            0.0, 1.0,
+    expected_W_inpainted << 1, 0,
+                            0, 1,
                             0.5, 0.5,
-                            0.117647, 0.882353;
+                            0.0357143 , 0.964286;
 
     Eigen::MatrixXd W_inpainted(4, 2);
     
@@ -444,22 +444,22 @@ bool test_smooth() {
     return true;
 }
 
-extern "C" Array find_matches_closest_surface_mesh(Mesh source_mesh, Mesh target_mesh) {
+extern "C" Array find_matches_closest_surface_mesh(Array source_mesh, Array target_mesh) {
     Array result;
-    if (!source_mesh.is_valid()) {
+    if (source_mesh.is_empty()) {
         std::cerr << "Source mesh is not valid." << std::endl;
         return result;
     }
-    if (!target_mesh.is_valid()) {
+    if (target_mesh.is_empty()) {
         std::cerr << "Target mesh is not valid." << std::endl;
         return result;
     }
 
-    for (int i = 0; i < source_mesh.get_surface_count(); ++i) {
-        Array arrays = source_mesh.surface_get_arrays(i);
-        PackedArray<Vector3> source_vertices_godot = arrays.at(Mesh::ARRAY_VERTEX);
-        PackedArray<int32_t> source_indices_godot = arrays.at(Mesh::ARRAY_INDEX);
-        PackedArray<Vector3> source_normals_godot = arrays.at(Mesh::ARRAY_NORMAL);
+    for (int i = 0; i < source_mesh.size(); ++i) {
+        Array arrays = source_mesh[i];
+        PackedArray<Vector3> source_vertices_godot = arrays[Mesh::ARRAY_VERTEX];
+        PackedArray<int32_t> source_indices_godot = arrays[Mesh::ARRAY_INDEX];
+        PackedArray<Vector3> source_normals_godot = arrays[Mesh::ARRAY_NORMAL];
 
         auto source_vertices_vec = source_vertices_godot.fetch();
         Eigen::MatrixXd source_vertices(source_vertices_vec.size(), 3);
@@ -481,11 +481,11 @@ extern "C" Array find_matches_closest_surface_mesh(Mesh source_mesh, Mesh target
             source_normals.row(j) << n.x, n.y, n.z;
         }
 
-        for (int j = 0; j < target_mesh.get_surface_count(); ++j) {
-            Array target_arrays = target_mesh.surface_get_arrays(j);
-            PackedArray<Vector3> target_vertices_godot = target_arrays.at(Mesh::ARRAY_VERTEX);
-            PackedArray<int32_t> target_indices_godot = target_arrays.at(Mesh::ARRAY_INDEX);
-            PackedArray<Vector3> target_normals_godot = target_arrays.at(Mesh::ARRAY_NORMAL);
+        for (int j = 0; j < target_mesh.size(); ++j) {
+            Array target_arrays = target_mesh[j];
+            PackedArray<Vector3> target_vertices_godot = target_arrays[Mesh::ARRAY_VERTEX];
+            PackedArray<int32_t> target_indices_godot = target_arrays[Mesh::ARRAY_INDEX];
+            PackedArray<Vector3> target_normals_godot = target_arrays[Mesh::ARRAY_NORMAL];
 
             auto target_vertices_vec = target_vertices_godot.fetch();
             Eigen::MatrixXd target_vertices(target_vertices_vec.size(), 3);
@@ -564,10 +564,10 @@ extern "C" Variant run_tests() {
         std::cerr << "test_smooth failed" << std::endl;
         all_tests_passed = false;
     }
-    // if (!test_inpaint()) {
-    //     std::cerr << "test_inpaint failed" << std::endl;
-    //     all_tests_passed = false;
-    // }
+    if (!test_inpaint()) {
+        std::cerr << "test_inpaint failed" << std::endl;
+        all_tests_passed = false;
+    }
     if (all_tests_passed) {
         std::cout << "All tests passed!" << std::endl;
         return Variant(0);

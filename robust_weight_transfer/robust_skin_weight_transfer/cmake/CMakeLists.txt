@@ -22,9 +22,9 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
 endif()
 
 if (SANDBOX_RISCV_EXT_C)
-	set(RISCV_ARCH "-march=rv64gc_zba_zbb_zbs_zbc")
+	set(RISCV_ARCH "-march=rv64gc")
 else()
-	set(RISCV_ARCH "-march=rv64g_zba_zbb_zbs_zbc")
+	set(RISCV_ARCH "-march=rv64g")
 endif()
 set(RISCV_ABI "-mabi=lp64d")
 
