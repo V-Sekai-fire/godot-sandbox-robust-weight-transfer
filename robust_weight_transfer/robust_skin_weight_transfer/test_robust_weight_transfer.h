@@ -13,7 +13,7 @@ Eigen::MatrixXd interpolate_attribute_from_bary(const Eigen::MatrixXd& p_vertex_
 
 Eigen::VectorXd normalize_vector(const Eigen::VectorXd& p_vector);
 
-std::tuple<Eigen::VectorXi, Eigen::MatrixXd> find_matches_closest_surface(const Eigen::MatrixXd& p_source_vertices, const Eigen::MatrixXi& p_source_triangles, const Eigen::MatrixXd& p_source_normals, const Eigen::MatrixXd& p_target_vertices, const Eigen::MatrixXi& p_target_triangles, const Eigen::MatrixXd& p_target_normals, const Eigen::MatrixXd& p_source_weights, double p_distance_threshold_squared, double p_angle_threshold_degrees);
+void find_matches_closest_surface(const Eigen::MatrixXd& p_source_vertices, const Eigen::MatrixXi& p_source_triangles, const Eigen::MatrixXd& p_source_normals, const Eigen::MatrixXd& p_target_vertices, const Eigen::MatrixXi& p_target_triangles, const Eigen::MatrixXd& p_target_normals, const Eigen::MatrixXd& p_source_weights, double p_distance_threshold_squared, double p_angle_threshold_degrees, Eigen::VectorXi& r_matched, Eigen::MatrixXd& r_target_weights);
 
 bool is_valid_array(const Eigen::MatrixXd& p_matrix);
 
