@@ -14,6 +14,8 @@
 #include <igl/slice_mask.h>
 #include <igl/min_quad_with_fixed.h>
 
+#include "generated_api.hpp"
+
 Eigen::MatrixXd find_closest_point_on_surface(const Eigen::MatrixXd& p_test_points, const Eigen::MatrixXd& p_vertices, const Eigen::MatrixXi& p_triangles) {
     Eigen::VectorXd smallest_squared_distances;
     Eigen::VectorXi primitive_indices;
@@ -117,36 +119,31 @@ bool is_valid_array(const Eigen::MatrixXd& p_matrix) {
 bool inpaint(const Eigen::MatrixXd& p_V2, const Eigen::MatrixXi& p_F2, const Eigen::MatrixXd& p_W2, const Eigen::Array<bool,Eigen::Dynamic,1>& p_Matched, Eigen::MatrixXd& r_W_inpainted)
 {
     // Compute the laplacian
-
     Eigen::SparseMatrix<double> L, M, Minv;
     igl::cotmatrix(p_V2, p_F2, L);
-    igl::massmatrix(p_V2, p_F2, igl::MassMatrixType::MASSMATRIX_TYPE_VORONOI, M);
+    igl::massmatrix(p_V2, p_F2, igl::MASSMATRIX_TYPE_VORONOI, M);
     igl::invert_diag(M, Minv);
 
-    Eigen::SparseMatrix<double> Q = -L + L*Minv*L;
-    
+    // L, M = robust_laplacian.mesh_laplacian(V2, F2)
+    Eigen::SparseMatrix<double> Q = -L + L * Minv * L;
     Eigen::SparseMatrix<double> Aeq;
-
     Eigen::VectorXd Beq;
-
     Eigen::MatrixXd B = Eigen::MatrixXd::Zero(L.rows(), p_W2.cols());
 
-    Eigen::VectorXi b_all = Eigen::VectorXi::LinSpaced(p_V2.rows(), 0, p_V2.rows()-1);
-      
+    Eigen::VectorXi b_all = Eigen::VectorXi::LinSpaced(p_V2.rows(), 0, p_V2.rows() - 1);
     Eigen::VectorXi b;
     igl::slice_mask(b_all, p_Matched, 1, b);
-    
+
     Eigen::MatrixXd bc;
-    igl::slice_mask(p_W2, p_Matched, 1, bc);    
-    
+    igl::slice_mask(p_W2, p_Matched, 1, bc);
+
     igl::min_quad_with_fixed_data<double> mqwf;
-    igl::min_quad_with_fixed_precompute(Q,b,Aeq,true,mqwf);
-    
-    bool result = igl::min_quad_with_fixed_solve(mqwf,B,bc,Beq,r_W_inpainted);
+    igl::min_quad_with_fixed_precompute(Q, b, Aeq, true, mqwf);
+
+    bool result = igl::min_quad_with_fixed_solve(mqwf, B, bc, Beq, r_W_inpainted);
 
     return result;
 }
-
 
 /**
  * Smooth weights in the areas for which weights were inpainted and also their close neighbours.
@@ -238,7 +235,7 @@ void smooth(Eigen::MatrixXd& W2_smoothed,
             }
         }
     }
-} 
+}
 
 bool test_find_closest_point_on_surface() {
     Eigen::MatrixXd vertices(3, 3);
@@ -446,6 +443,90 @@ bool test_smooth() {
     return true;
 }
 
+bool test_find_matches_closest_surface_mesh() {
+    SphereMesh source_mesh(cast_to<SphereMesh>(ClassDB::instantiate("SphereMesh")));
+    BoxMesh target_mesh(cast_to<BoxMesh>(ClassDB::instantiate("BoxMesh")));
+
+    Eigen::MatrixXd source_vertices;
+    Eigen::MatrixXi source_triangles;
+    Eigen::MatrixXd source_normals;
+
+    for (int i = 0; i < source_mesh.get_surface_count(); ++i) {
+        Array arrays = source_mesh.surface_get_arrays(i);
+        PackedArray<Vector3> source_vertices_godot = arrays.at(Mesh::ARRAY_VERTEX);
+        PackedArray<int32_t> source_indices_godot = arrays.at(Mesh::ARRAY_INDEX);
+        PackedArray<Vector3> source_normals_godot = arrays.at(Mesh::ARRAY_NORMAL);
+
+        Eigen::MatrixXd temp_vertices(source_vertices_godot.fetch().size(), 3);
+        for (size_t j = 0; j < source_vertices_godot.fetch().size(); ++j) {
+            Vector3 v = source_vertices_godot.fetch()[j];
+            temp_vertices.row(j) << v.x, v.y, v.z;
+        }
+        Eigen::MatrixXi temp_triangles(source_indices_godot.fetch().size() / 3, 3);
+        for (size_t j = 0; j < source_indices_godot.fetch().size(); j += 3) {
+            temp_triangles.row(j / 3) << source_indices_godot.fetch()[j], source_indices_godot.fetch()[j + 1], source_indices_godot.fetch()[j + 2];
+        }
+        Eigen::MatrixXd temp_normals(source_normals_godot.fetch().size(), 3);
+        for (size_t j = 0; j < source_normals_godot.fetch().size(); ++j) {
+            Vector3 n = source_normals_godot.fetch()[j];
+            temp_normals.row(j) << n.x, n.y, n.z;
+        }
+
+        source_vertices = temp_vertices;
+        source_triangles = temp_triangles;
+        source_normals = temp_normals;
+
+        for (int j = 0; j < target_mesh.get_surface_count(); ++j) {
+            Array target_arrays = target_mesh.surface_get_arrays(j);
+            PackedArray<Vector3> target_vertices_godot = target_arrays.at(Mesh::ARRAY_VERTEX);
+            PackedArray<int32_t> target_indices_godot = target_arrays.at(Mesh::ARRAY_INDEX);
+            PackedArray<Vector3> target_normals_godot = target_arrays.at(Mesh::ARRAY_NORMAL);
+
+            Eigen::MatrixXd target_vertices(target_vertices_godot.fetch().size(), 3);
+            for (size_t k = 0; k < target_vertices_godot.fetch().size(); ++k) {
+                Vector3 v = target_vertices_godot.fetch()[k];
+                target_vertices.row(k) << v.x, v.y, v.z;
+            }
+            Eigen::MatrixXi target_triangles(target_indices_godot.fetch().size() / 3, 3);
+            for (size_t k = 0; k < target_indices_godot.fetch().size(); k += 3) {
+                target_triangles.row(k / 3) << target_indices_godot.fetch()[k], target_indices_godot.fetch()[k + 1], target_indices_godot.fetch()[k + 2];
+            }
+            Eigen::MatrixXd target_normals(target_normals_godot.fetch().size(), 3);
+            for (size_t k = 0; k < target_normals_godot.fetch().size(); ++k) {
+                Vector3 n = target_normals_godot.fetch()[k];
+                target_normals.row(k) << n.x, n.y, n.z;
+            }
+
+            Eigen::RowVector3d translation_vector(3, 3, 3);
+            source_vertices.rowwise() += translation_vector;
+
+            Eigen::MatrixXd source_weights(source_vertices.rows(), 2);
+            source_weights.setZero();
+
+            double distance_threshold_squared = 0.5;
+            double angle_threshold_degrees = 10;
+
+            Eigen::VectorXi expected_matched(target_vertices.rows());
+            expected_matched.setZero();
+            Eigen::MatrixXd expected_weights(target_vertices.rows(), 2);
+            expected_weights.setZero();
+
+            auto [matched, target_weights] = find_matches_closest_surface(source_vertices, source_triangles, source_normals, target_vertices, target_triangles, target_normals, source_weights, distance_threshold_squared, angle_threshold_degrees);
+
+            std::cout << "Matched:\n" << matched << std::endl;
+            std::cout << "Expected Matched:\n" << expected_matched << std::endl;
+            std::cout << "Target Weights:\n" << target_weights << std::endl;
+            std::cout << "Expected Weights:\n" << expected_weights << std::endl;
+
+            if (!matched.isApprox(expected_matched) || !target_weights.isApprox(expected_weights, 1e-6)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 extern "C" Variant run_tests() {
     bool all_tests_passed = true;
     if (!test_find_closest_point_on_surface()) {
@@ -462,6 +543,10 @@ extern "C" Variant run_tests() {
     }
     if (!test_find_matches_closest_surface()) {
         std::cerr << "test_find_matches_closest_surface failed" << std::endl;
+        all_tests_passed = false;
+    }
+    if(!test_find_matches_closest_surface_mesh()) {
+        std::cerr << "test_find_matches_closest_surface_mesh failed" << std::endl;
         all_tests_passed = false;
     }
     if (!test_is_valid_array()) {

@@ -22,3 +22,5 @@ json_diff_sample/json_diff/generated_api.hpp
 robust_weight_transfer/robust_skin_weight_transfer/robust_weight_transfer.elf
 
 robust_weight_transfer/robust_weight_transfer.elf
+robust_weight_transfer/robust_skin_weight_transfer/log.txt
+!robust_weight_transfer/robust_skin_weight_transfer/generated_api.hpp
